@@ -22,6 +22,8 @@ import History   from './pages/History'
 import Login     from './pages/Login'
 import Register  from './pages/Register'
 import NotFound  from './pages/NotFound'
+import Insights from './pages/Insights'
+import Achievements from './pages/Achievements'
 
 const ProtectedRoute = ({ children }) => {
   const token = useSelector(s => s.auth.token)
@@ -56,6 +58,8 @@ function AppInner() {
         <Route path="/chat"    element={<Chat />} />
         <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
+        <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

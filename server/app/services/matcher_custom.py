@@ -24,10 +24,10 @@ CUSTOM_ENTRIES: dict[str, dict] = {
             "spikes blood sugar rapidly. First ingredient in most "
             "Indian biscuits and snacks."
         ),
-        "revant_concern":   "YES",
+        "expert_concern":   "YES",
         "side_effects":     [],
         "fssai_permitted":  True,
-        "source":           "Custom entry — Food Pharmer",
+        "source":           "Custom entry — LabelScan AI",
     },
 
     "PALM_OIL": {
@@ -44,10 +44,10 @@ CUSTOM_ENTRIES: dict[str, dict] = {
             "Linked to increased LDL cholesterol at high consumption. "
             "Used extensively in Indian packaged foods due to low cost."
         ),
-        "revant_concern":   "YES",
+        "expert_concern":   "YES",
         "side_effects":     [],
         "fssai_permitted":  True,
-        "source":           "Custom entry — Food Pharmer",
+        "source":           "Custom entry — LabelScan AI",
     },
 
     "HYDRO_VEG_OIL": {
@@ -64,7 +64,7 @@ CUSTOM_ENTRIES: dict[str, dict] = {
             "WHO has called for complete global elimination. "
             "Linked to heart disease, stroke, and type 2 diabetes."
         ),
-        "revant_concern":   "YES",
+        "expert_concern":   "YES",
         "side_effects":     [
             {
                 "effect":         "Increases cardiovascular disease risk",
@@ -76,7 +76,7 @@ CUSTOM_ENTRIES: dict[str, dict] = {
             }
         ],
         "fssai_permitted":  True,
-        "source":           "Custom entry — Food Pharmer",
+        "source":           "Custom entry — LabelScan AI",
     },
 
     "INTERESTER_FAT": {
@@ -93,10 +93,10 @@ CUSTOM_ENTRIES: dict[str, dict] = {
             "Limited long-term human data. Some studies suggest similar "
             "metabolic concerns to trans fat."
         ),
-        "revant_concern":   "YES",
+        "expert_concern":   "YES",
         "side_effects":     [],
         "fssai_permitted":  True,
-        "source":           "Custom entry — Food Pharmer",
+        "source":           "Custom entry — LabelScan AI",
     },
 
     "HFCS": {
@@ -113,7 +113,7 @@ CUSTOM_ENTRIES: dict[str, dict] = {
             "Linked to non-alcoholic fatty liver disease, obesity, and insulin "
             "resistance. Common in Indian cold drinks and confectionery."
         ),
-        "revant_concern":   "YES",
+        "expert_concern":   "YES",
         "side_effects":     [
             {
                 "effect":         "Linked to non-alcoholic fatty liver disease",
@@ -125,7 +125,7 @@ CUSTOM_ENTRIES: dict[str, dict] = {
             }
         ],
         "fssai_permitted":  True,
-        "source":           "Custom entry — Food Pharmer",
+        "source":           "Custom entry — LabelScan AI",
     },
 
     # FIX: INVERT_SUGAR is separate from HFCS — harm_level 2 not 4
@@ -144,7 +144,7 @@ CUSTOM_ENTRIES: dict[str, dict] = {
             "but not the same as high-fructose corn syrup. "
             "Adds to total sugar intake; moderate concern."
         ),
-        "revant_concern":   "NO",
+        "expert_concern":   "NO",
         "side_effects":     [],
         "fssai_permitted":  True,
         "source":           "Custom entry",

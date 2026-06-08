@@ -2,7 +2,7 @@
  * src/components/ui/LoadingSpinner.jsx
  * ======================================
  * Animated loading indicator with optional message.
- * Used during scan operations with Revant-style messages.
+ * Used during scan operations with friendly Hinglish messages.
  */
 import React, { useState, useEffect } from 'react'
 import { Leaf } from 'lucide-react'
@@ -10,7 +10,7 @@ import { Leaf } from 'lucide-react'
 const SCAN_MESSAGES = [
   'Ingredient padhna chal raha hai... 👀',
   'FSSAI database se match ho raha hai...',
-  "Revant ki nazar se dekh rahe hain...",
+  'Ingredients ko ICMR thresholds se compare kar rahe hain...',
   'Score calculate ho raha hai...',
   'Verdict taiyaar ho raha hai...',
 ]

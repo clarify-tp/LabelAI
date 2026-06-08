@@ -44,7 +44,7 @@ def calculate_food_score(
     category: str,
 ) -> dict:
     """
-    Deterministic Food Pharmer Score calculator.
+    Deterministic LabelScan Score calculator.
     Called as an LLM tool — the LLM never computes this number itself.
 
     Returns score (0-100), band, label, breakdown, humanised_nutrition,
@@ -92,7 +92,7 @@ def calculate_food_score(
             "harm_level":     harm,
             "penalty":        -final_penalty,
             "reason":         ing.get("harm_reason", ""),
-            "revant_concern": ing.get("revant_concern") == "YES",
+            "expert_concern": ing.get("expert_concern") == "YES",
         })
 
     # ── 3. Nutrition penalties (category-specific thresholds) ─────────────────
@@ -198,7 +198,7 @@ CALCULATE_FOOD_SCORE_SCHEMA = {
     "function": {
         "name": "calculate_food_score",
         "description": (
-            "Calculate the Food Pharmer Score (0-100) for a food product. "
+            "Calculate the LabelScan Score (0-100) for a food product. "
             "Always call this tool before writing any verdict. "
             "Do NOT compute or guess the score yourself."
         ),
@@ -216,7 +216,7 @@ CALCULATE_FOOD_SCORE_SCHEMA = {
                             "harm_level":       {"type": "integer"},
                             "functional_class": {"type": "string"},
                             "harm_reason":      {"type": "string"},
-                            "revant_concern":   {"type": "string"},
+                            "expert_concern":   {"type": "string"},
                         },
                     },
                 },

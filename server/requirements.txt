@@ -17,3 +17,11 @@ playwright==1.48.0
 openpyxl==3.1.5
 reportlab==4.2.5
 alembic==1.13.3
+pillow==10.4.0
+
+# ── New free-tier integrations (all optional, degrade gracefully) ─────────────
+pillow-heif>=0.16.0        # HEIC/HEIF iPhone photo support (Task 2A)
+redis>=5.0.0               # Scan result caching (Task 3D) — Upstash free tier
+cloudinary>=1.36.0         # Scan image storage (Task 3F) — free 25GB
+sentry-sdk[flask]>=1.40.0  # Error monitoring (Task 3G) — free 5K errors/month
+flask-limiter>=3.5.0       # Rate limiting (Task 6) — free, built-in

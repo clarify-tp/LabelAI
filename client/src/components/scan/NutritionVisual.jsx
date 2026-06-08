@@ -78,7 +78,7 @@ export default function NutritionVisual({ humanisedNutrition: hn, servingDescrip
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Sugar — always first (Revant's signature metric) */}
+        {/* Sugar — always shown first (the headline metric) */}
         {sugar && (
           <MetricBar
             label="Sugar"

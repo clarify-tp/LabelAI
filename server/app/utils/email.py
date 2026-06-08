@@ -49,10 +49,10 @@ def send_welcome_email(email: str, name: str) -> bool:
       <p>India's first AI-powered food label scanner is ready for you.</p>
       <p>Scan any food product's barcode or label photo to instantly know:</p>
       <ul>
-        <li>Food Pharmer Score (0-100)</li>
+        <li>LabelScan Score (0-100)</li>
         <li>Harmful ingredients in plain Hindi/English</li>
         <li>Sugar in teaspoons, salt in pinches</li>
-        <li>Revant Himatsingka's verdict in his exact voice</li>
+        <li>A clear, science-backed verdict in Hinglish</li>
       </ul>
       <p>India padhega, India samjhega. 🙏</p>
     </div>

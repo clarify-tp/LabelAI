@@ -20,12 +20,15 @@ import json
 import hashlib
 import requests
 from flask import Blueprint, request, jsonify, g
-from app import db
+from app import db, limiter
 from app.models.product import Product, IngredientChange
 from app.models.scan import Scan
 from app.models.cache import URLCache
 from app.services.matcher import match_all
 from app.services.groq_service import extract_from_image, generate_verdict
+from app.services.cache_service import get_cached_scan, cache_scan
+from app.services.nutrition_fallback import lookup_nutrition_by_name
+from app.services.image_store import upload_scan_image
 from app.tools.score_engine import calculate_food_score
 from app.utils.auth import jwt_optional
 from app.utils.humanise import (
@@ -43,12 +46,13 @@ scan_bp = Blueprint("scan", __name__)
 OFF_API    = "https://world.openfoodfacts.org/api/v2/product/{barcode}.json"
 OFF_FIELDS = (
     "product_name,brands,ingredients_text,additives_tags,nova_group,"
-    "nutriscore_grade,nutriments,allergens,categories_tags,quantity"
+    "nutriscore_grade,nutriments,allergens,categories_tags,quantity,"
+    "packaging,manufacturing_places,origins,labels_tags"
 )
 
 _GROQ_SAFE_KEYS = {
     "ins_no", "name_english", "harm_level",
-    "functional_class", "harm_reason", "revant_concern",
+    "functional_class", "harm_reason", "expert_concern",
 }
 
 
@@ -156,9 +160,9 @@ def _run_pipeline(
             verdict_text = (
                 f"{product.product_name or 'Yeh product'} ka score {score}/100 hai. "
                 + (f"Worst ingredient: {worst}. " if worst else "")
-                + ("Food Pharmer says: AVOID karo." if score < 45
+                + ("LabelScan AI: AVOID karo ❌" if score < 45
                    else "Dhyan se khao." if score < 70
-                   else "Food Pharmer says: Yeh theek hai! Clean choice ✓")
+                   else "LabelScan AI: Safe choice ✓")
             )
 
         product.food_pharmer_score = score_result["score"]
@@ -232,12 +236,17 @@ def _off_to_product(barcode: str, off_data: dict) -> Product:
         fiber_100g         = nutrients.get("fiber_100g"),
         allergens          = _safe_str(off_data.get("allergens"), 500) or "",
         categories         = ",".join(off_data.get("categories_tags", []))[:500],
+        # ── Richer OFF metadata (Task 3B) ─────────────────────────────────────
+        packaging            = _safe_str(off_data.get("packaging"), 200),
+        manufacturing_places = _safe_str(off_data.get("manufacturing_places"), 200),
+        origins              = _safe_str(off_data.get("origins"), 200),
+        labels_tags          = (",".join(off_data.get("labels_tags", []))[:500]) or None,
         source             = "off_api",
         data_verified      = False,
     )
 
 
-def _save_scan(user_id, product, category, input_method, score):
+def _save_scan(user_id, product, category, input_method, score, image_url=None):
     try:
         scan = Scan(
             user_id      = user_id,
@@ -246,14 +255,18 @@ def _save_scan(user_id, product, category, input_method, score):
             category     = category,
             input_method = input_method,
             base_score   = score,
+            image_url    = image_url,
         )
         db.session.add(scan)
         db.session.commit()
+        return scan
     except Exception:
         db.session.rollback()
+        return None
 
 
 @scan_bp.route("/barcode", methods=["POST"])
+@limiter.limit("30 per hour")
 @jwt_optional
 def scan_barcode():
     data     = request.get_json(silent=True) or {}
@@ -302,16 +315,27 @@ def scan_barcode():
 
 
 @scan_bp.route("/photo", methods=["POST"])
+@limiter.limit("20 per hour")   # Groq vision is the expensive call
 @jwt_optional
 def scan_photo():
     data      = request.get_json(silent=True) or {}
     image_b64 = data.get("image") or ""
     category  = (data.get("category") or "general").strip()
+    mime_type = (data.get("mime_type") or "image/jpeg").strip()
     if not image_b64:
         return jsonify({"error": "Image (base64) is required"}), 400
 
+    # ── Cache check — return instantly for a repeat of the exact same photo ───
+    cached = get_cached_scan(image_b64)
+    if cached:
+        cached_barcode = (cached.get("product") or {}).get("barcode")
+        cached_product = db.session.get(Product, cached_barcode) if cached_barcode else None
+        if cached_product:
+            _save_scan(g.user_id, cached_product, category, "photo", cached.get("score"))
+        return jsonify({"status": "OK", "cached": True, **cached}), 200
+
     try:
-        extracted = extract_from_image(image_b64, category)
+        extracted = extract_from_image(image_b64, category, mime_type=mime_type)
     except ValueError as e:
         return jsonify({"error": str(e)}), 422
 
@@ -461,14 +485,61 @@ def scan_photo():
 
     if not product or not (product.ingredients_text):
         return jsonify({
-            "status":         "LOW_CONFIDENCE",
-            "message":        "Could not read ingredients. Try better lighting or a clearer angle.",
+            "status":  "LOW_CONFIDENCE",
+            "message": "Could not read ingredients clearly.",
+            "tips": [
+                "Photograph the INGREDIENTS LIST panel specifically",
+                "Use natural light — avoid shadows or flash glare",
+                "Hold camera steady and close to the label",
+                "Try landscape mode for wide labels",
+                "Ensure all ingredient text is inside the frame",
+            ],
             "ocr_confidence": extracted.get("ocr_confidence", "LOW"),
         }), 422
 
+    # ── USDA nutrition fallback — only when OCR found no nutrition at all ──────
+    usda_used = False
+    if not override_nutrition:
+        has_any_nutrition = any([
+            product.energy_kcal_100g, product.protein_100g,
+            product.sugars_100g, product.fat_100g, product.sodium_100g,
+        ])
+        if not has_any_nutrition:
+            usda = lookup_nutrition_by_name(
+                extracted.get("product_name", "") or product.product_name or "",
+                extracted.get("brand", "") or product.brand or "",
+            )
+            if usda:
+                product.energy_kcal_100g = product.energy_kcal_100g or usda.get("energy_kcal")
+                product.protein_100g     = product.protein_100g     or usda.get("protein_g")
+                product.fat_100g         = product.fat_100g         or usda.get("fat_g")
+                product.sugars_100g      = product.sugars_100g      or usda.get("sugar_g")
+                product.sodium_100g      = product.sodium_100g      or usda.get("sodium_g")
+                product.fiber_100g       = product.fiber_100g       or usda.get("fiber_g")
+                product.food_pharmer_score = None
+                product.verdict_text       = None
+                usda_used = True
+                try: db.session.commit()
+                except Exception: db.session.rollback()
+
     result = _run_pipeline(product, category, override_nutrition_per_serving=override_nutrition)
-    result["ocr_confidence"] = extracted.get("ocr_confidence", "HIGH")
-    _save_scan(g.user_id, product, category, "photo", result["score"])
+    result["ocr_confidence"]  = extracted.get("ocr_confidence", "HIGH")
+    result["nutrition_source"] = "usda_fallback" if usda_used else "label"
+
+    # ── Optional: store the scanned label image (Cloudinary free tier) ────────
+    scan = _save_scan(g.user_id, product, category, "photo", result["score"])
+    image_url = upload_scan_image(image_b64, scan.id if scan else (product.barcode or "unknown"))
+    if image_url:
+        result["scan_image_url"] = image_url
+        if scan:
+            try:
+                scan.image_url = image_url
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
+    # ── Cache the successful result for repeat scans of the same photo ────────
+    cache_scan(image_b64, {k: v for k, v in result.items()})
     return jsonify({"status": "OK", **result}), 200
 
 

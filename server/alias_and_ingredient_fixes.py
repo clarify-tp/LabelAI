@@ -57,9 +57,9 @@ def fix_sucralose():
                 "Artificial sweetener. May disrupt gut microbiome. "
                 "Some studies link to insulin resistance. "
                 "Used daily in supplements — cumulative exposure is the concern. "
-                "Revant specifically flags this in protein powders."
+                "Commonly flagged in protein powders and diet products."
             )
-            sucralose.revant_concern = "YES"
+            sucralose.expert_concern = "YES"
             db.session.commit()
             print(f"  ✅ Sucralose (955): harm_level {old} → 4")
         else:
@@ -78,9 +78,9 @@ def fix_sucralose():
                     "Some studies link to insulin resistance. "
                     "Commonly used in protein powders and diet products."
                 ),
-                revant_concern   = "YES",
+                expert_concern   = "YES",
                 fssai_permitted  = True,
-                source           = "FSSAI + Food Pharmer research",
+                source           = "FSSAI + LabelScan AI research",
             ))
             db.session.commit()
             print("  ✅ Sucralose (955): inserted with harm_level 4")
@@ -113,7 +113,7 @@ def add_invert_sugar_entry():
                 "Used in biscuits and confectionery for texture and sweetness. "
                 "Moderate concern — adds to total sugar intake."
             ),
-            revant_concern   = "NO",
+            expert_concern   = "NO",
             fssai_permitted  = True,
             source           = "Custom entry — corrected from HFCS mapping",
         ))

@@ -1,8 +1,8 @@
-"""Initial migration
+"""final migration
 
-Revision ID: dadf1efc268d
-Revises: 
-Create Date: 2026-05-20 15:30:00.005194
+Revision ID: a260cafcc1af
+Revises: 134546b5f5b2
+Create Date: 2026-06-08 17:50:57.298960
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'dadf1efc268d'
-down_revision = None
+revision = 'a260cafcc1af'
+down_revision = '134546b5f5b2'
 branch_labels = None
 depends_on = None
 
@@ -54,7 +54,7 @@ def upgrade():
     sa.Column('ingredients_hash', sa.String(length=64), nullable=True),
     sa.Column('additives_tags', sa.Text(), nullable=True),
     sa.Column('nova_group', sa.Integer(), nullable=True),
-    sa.Column('nutriscore_grade', sa.String(length=1), nullable=True),
+    sa.Column('nutriscore_grade', sa.String(length=20), nullable=True),
     sa.Column('energy_kcal_100g', sa.Float(), nullable=True),
     sa.Column('protein_100g', sa.Float(), nullable=True),
     sa.Column('fat_100g', sa.Float(), nullable=True),
@@ -66,6 +66,10 @@ def upgrade():
     sa.Column('serving_size_g', sa.Float(), nullable=True),
     sa.Column('allergens', sa.Text(), nullable=True),
     sa.Column('categories', sa.Text(), nullable=True),
+    sa.Column('packaging', sa.String(length=200), nullable=True),
+    sa.Column('manufacturing_places', sa.String(length=200), nullable=True),
+    sa.Column('origins', sa.String(length=200), nullable=True),
+    sa.Column('labels_tags', sa.String(length=500), nullable=True),
     sa.Column('food_pharmer_score', sa.Integer(), nullable=True),
     sa.Column('score_band', sa.String(length=10), nullable=True),
     sa.Column('verdict_text', sa.Text(), nullable=True),
@@ -151,6 +155,7 @@ def upgrade():
     sa.Column('base_score', sa.Integer(), nullable=True),
     sa.Column('personalised_score', sa.Integer(), nullable=True),
     sa.Column('verdict_text', sa.Text(), nullable=True),
+    sa.Column('image_url', sa.String(length=500), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['barcode'], ['products.barcode'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),

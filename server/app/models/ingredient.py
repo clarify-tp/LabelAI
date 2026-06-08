@@ -27,7 +27,7 @@ class Ingredient(db.Model):
     harm_severity    = db.Column(db.String(20), nullable=True)     # LOW/MEDIUM-HIGH/HIGH
     color_code       = db.Column(db.String(10), nullable=True)     # GREEN/YELLOW/ORANGE/RED
     harm_reason      = db.Column(db.Text, nullable=True)
-    revant_concern   = db.Column(db.String(3), default="NO")       # YES/NO
+    expert_concern   = db.Column(db.String(3), default="NO")       # YES/NO
     side_effects     = db.Column(db.Text, nullable=True)           # JSON string
     fssai_permitted  = db.Column(db.Boolean, default=True)
     source           = db.Column(db.String(200), nullable=True)
@@ -51,7 +51,7 @@ class Ingredient(db.Model):
             "harm_severity":    self.harm_severity,
             "color_code":       self.color_code,
             "harm_reason":      self.harm_reason,
-            "revant_concern":   self.revant_concern,
+            "expert_concern":   self.expert_concern,
             "side_effects":     side_effects,
         }
 

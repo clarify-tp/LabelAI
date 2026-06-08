@@ -4,7 +4,7 @@ app/tools/__init__.py
 LLM tool definitions used for function calling via Groq API.
 
 Tools:
-  calculate_food_score  — deterministic Food Pharmer Score (0-100)
+  calculate_food_score  — deterministic LabelScan Score (0-100)
   compare_products      — deterministic product comparison with winner
   calculate_bmi         — BMI using Indian ICMR thresholds
 

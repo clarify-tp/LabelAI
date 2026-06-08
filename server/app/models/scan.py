@@ -27,6 +27,7 @@ class Scan(db.Model):
     base_score         = db.Column(db.Integer, nullable=True)
     personalised_score = db.Column(db.Integer, nullable=True)
     verdict_text       = db.Column(db.Text, nullable=True)
+    image_url          = db.Column(db.String(500), nullable=True)  # Cloudinary CDN URL (optional)
     created_at         = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     user    = db.relationship("User",    back_populates="scans")
@@ -41,5 +42,6 @@ class Scan(db.Model):
             "input_method":       self.input_method,
             "base_score":         self.base_score,
             "personalised_score": self.personalised_score,
+            "scan_image_url":     self.image_url,
             "created_at":         self.created_at.isoformat(),
         }

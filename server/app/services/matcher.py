@@ -236,7 +236,7 @@ def match_ingredient(raw_name: str, product_barcode: str = None) -> list[dict]:
     if any(k in cleaned for k in SAFE_BASE_KEYWORDS):
         return [{
             "ins_no": "SAFE_BASE", "name_english": raw_name,
-            "harm_level": 1, "color_code": "GREEN", "revant_concern": "NO",
+            "harm_level": 1, "color_code": "GREEN", "expert_concern": "NO",
             "harm_reason": "Natural base food ingredient",
             "match_status": "safe_base", "raw_name": raw_name,
         }]
@@ -244,14 +244,14 @@ def match_ingredient(raw_name: str, product_barcode: str = None) -> list[dict]:
     if any(k in cleaned for k in ADDITIVE_KEYWORDS):
         return [{
             "ins_no": "UNKNOWN_ADDITIVE", "name_english": raw_name,
-            "harm_level": 2, "color_code": "YELLOW", "revant_concern": "NO",
+            "harm_level": 2, "color_code": "YELLOW", "expert_concern": "NO",
             "harm_reason": "Unrecognised additive — flagged for review",
             "match_status": "unknown_additive", "raw_name": raw_name,
         }]
 
     return [{
         "ins_no": "UNKNOWN", "name_english": raw_name,
-        "harm_level": 1, "color_code": "GREEN", "revant_concern": "NO",
+        "harm_level": 1, "color_code": "GREEN", "expert_concern": "NO",
         "harm_reason": "Unknown ingredient — neutral pending review",
         "match_status": "unknown", "raw_name": raw_name,
     }]

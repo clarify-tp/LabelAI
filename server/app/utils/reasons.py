@@ -3,7 +3,7 @@ app/utils/reasons.py
 ====================
 Deterministic reasons to eat / reasons to avoid.
 These are NEVER AI-generated — derived directly from verified data.
-Groq only formats them in Revant's voice in the final verdict.
+Groq only formats them in the LabelScan AI voice in the final verdict.
 Maximum 3 reasons each.
 """
 

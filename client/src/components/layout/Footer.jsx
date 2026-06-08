@@ -21,9 +21,6 @@ export default function Footer() {
             <span>•</span>
             <Link to="/privacy" className="hover:text-orange-600 transition-colors">Privacy</Link>
             <Link to="/terms" className="hover:text-orange-600 transition-colors">Terms</Link>
-            <a href="https://www.youtube.com/@Foodpharmer" target="_blank" rel="noopener noreferrer" className="hover:text-orange-600 transition-colors">
-              Food Pharmer
-            </a>
             <span className="flex items-center gap-1">
               Made with <Heart size={11} className="text-red-400"/> for India
             </span>

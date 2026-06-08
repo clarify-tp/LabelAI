@@ -12,9 +12,46 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 
+# ─── Optional: rate limiting (Task 6) — degrades gracefully if missing ────────
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    _LIMITER_OK = True
+except Exception:  # pragma: no cover - optional dependency
+    _LIMITER_OK = False
+
+# ─── Optional: Sentry error monitoring (Task 3G) — only active if DSN set ──────
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.flask import FlaskIntegration
+    _SENTRY_OK = True
+except Exception:  # pragma: no cover - optional dependency
+    _SENTRY_OK = False
+
 # ─── Extension instances (initialised without app, bound in create_app) ───────
 db = SQLAlchemy()
 migrate = Migrate()
+
+# Limiter is created here so routes can `from app import limiter` and decorate.
+# When flask-limiter isn't installed, `limiter` is a no-op shim (see below).
+if _LIMITER_OK:
+    limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=["200 per day", "50 per hour"],
+        storage_uri=os.getenv("REDIS_URL") or "memory://",
+    )
+else:
+    class _NoopLimiter:
+        """Fallback when flask-limiter is unavailable: decorators do nothing."""
+        def limit(self, *_a, **_k):
+            def deco(f):
+                return f
+            return deco
+
+        def init_app(self, *_a, **_k):
+            pass
+
+    limiter = _NoopLimiter()
 
 
 def create_app():
@@ -22,6 +59,15 @@ def create_app():
     Application factory.
     Returns a fully configured Flask app instance.
     """
+    # ── Sentry — initialise before app creation; no-op when SENTRY_DSN unset ──
+    if _SENTRY_OK and os.getenv("SENTRY_DSN"):
+        sentry_sdk.init(
+            dsn=os.getenv("SENTRY_DSN"),
+            integrations=[FlaskIntegration()],
+            traces_sample_rate=0.1,
+            environment=os.getenv("FLASK_ENV", "production"),
+        )
+
     app = Flask(__name__)
 
     # ── Configuration ──────────────────────────────────────────────────────────
@@ -45,6 +91,7 @@ def create_app():
     # ── Bind extensions ────────────────────────────────────────────────────────
     db.init_app(app)
     migrate.init_app(app, db)
+    limiter.init_app(app)
 
     # ── Import models so Alembic/Flask-Migrate can detect them ─────────────────
     with app.app_context():

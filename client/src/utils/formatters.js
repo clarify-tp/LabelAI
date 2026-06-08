@@ -13,7 +13,7 @@ export const sodiumToSalt = (mg) => mg ? (mg / 400).toFixed(2) : '0'
 /** Convert fat grams to tablespoons of oil */
 export const fatToTbsp = (g) => g ? (g / 14).toFixed(1) : '0'
 
-/** Return Tailwind colour classes for a Food Pharmer Score */
+/** Return Tailwind colour classes for a LabelScan Score */
 export const scoreColors = (score) => {
   if (score >= 70) return { bg: 'bg-green-500', text: 'text-green-600 dark:text-green-400', ring: 'ring-green-500', light: 'bg-green-50 dark:bg-green-900/20' }
   if (score >= 45) return { bg: 'bg-orange-400', text: 'text-orange-500 dark:text-orange-400', ring: 'ring-orange-400', light: 'bg-orange-50 dark:bg-orange-900/20' }

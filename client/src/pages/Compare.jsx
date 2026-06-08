@@ -100,7 +100,7 @@ export default function Compare() {
             <div className="rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
               <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800">
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Food Pharmer Scores
+                  LabelScan Scores
                 </h3>
               </div>
               <div className="p-4 grid gap-4" style={{ gridTemplateColumns: `repeat(${normProducts.length}, 1fr)` }}>

@@ -1,8 +1,11 @@
 # Label Padhega AI
 
-> India's first AI-powered food label scanner — powered by Food Pharmer's mission.
-> Scan any product to get a Food Pharmer Score (0–100), a Revant-style Hinglish verdict,
-> and verified ingredient analysis against the official FSSAI additive database.
+> India's free AI-powered food label scanner.
+> Scan any product — by **live camera**, photo, barcode, or store link — to get a
+> **LabelScan Score (0–100)**, a clear science-backed Hinglish verdict, and verified
+> ingredient analysis against the official FSSAI additives database.
+
+**100% free. No ads. No tracking.**
 
 ---
 
@@ -45,9 +48,29 @@ labelpadhega/
 │       └── utils/     # auth.py (JWT), humanise.py, reasons.py, side_effects.py, email.py
 │
 └── data/
-    ├── india_products.json                    # Open Food Facts India (1,079 products)
-    └── FSSAI_India_Additives_FoodPharmer.csv  # 475 FSSAI additives with harm levels
+    ├── india_products.json          # Open Food Facts India (1,079 products)
+    └── FSSAI_India_Additives.csv    # 475 FSSAI additives with harm levels
 ```
+
+---
+
+## Features
+
+- 📷 **Live camera scan** — point your phone at a packet (in-browser, no app, no API key)
+- 🖼️ **Photo upload** — JPEG, PNG, WEBP, **HEIC/HEIF** (iPhone), BMP, TIFF
+- 🔢 **Barcode** & 🔗 **store link** (Blinkit / BigBasket) scanning
+- 🧪 **Image preprocessing + OCR retry** for hard-to-read labels
+- 🥗 **LabelScan Score (0–100)** with category-aware, ICMR-based scoring
+- 🔬 **Ingredient deep-dive drawer** — tap any ingredient for harm level, INS no., reason, FSSAI status
+- ✅ **Certification badges** (organic / vegan / halal …) from OpenFoodFacts
+- 🛟 **USDA nutrition fallback** when a label's nutrition panel isn't readable
+- ⚡ **Redis caching** for instant repeat scans
+- 🖼️ **Scan history with label thumbnails** (Cloudinary) and score-band filters
+- 📤 **WhatsApp / native share / copy** of results
+- 🛡️ **Rate limiting**, optional **Sentry** error monitoring, optional **Umami** analytics
+
+> **All third-party services are optional and free-tier.** The app runs fully without
+> Redis, Cloudinary, USDA, Sentry, or Umami configured — each degrades gracefully.
 
 ---
 
@@ -209,4 +232,21 @@ the user's own health profile is injected. Low confidence → general adult thre
 
 ---
 
-*Version 1.0 — Label Padhega AI — India padhega, India samjhega 🌿*
+## Optional Free-Tier Integrations
+
+All are off by default and degrade gracefully. Configure in `server/.env` / `client/.env`:
+
+| Service | Env var(s) | Free tier | Used for |
+|---|---|---|---|
+| USDA FoodData Central | `USDA_API_KEY` | 3600 req/hr (or DEMO_KEY) | Nutrition fallback |
+| Redis (Upstash/local) | `REDIS_URL` | 10K cmds/day | Scan result cache + rate-limit store |
+| Cloudinary | `CLOUDINARY_*` | 25GB | Scan image storage / history thumbnails |
+| Sentry | `SENTRY_DSN` / `VITE_SENTRY_DSN` | 5K errors/mo | Error monitoring |
+| Umami | `VITE_UMAMI_WEBSITE_ID` | self-hosted | Privacy-first analytics |
+
+> The frontend's Sentry integration uses an optional dynamic import — run
+> `npm install @sentry/react` only if you set `VITE_SENTRY_DSN`.
+
+---
+
+*Version 1.1 — Label Padhega AI — India padhega, India samjhega 🌿*

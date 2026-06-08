@@ -56,6 +56,12 @@ class Product(db.Model):
     allergens         = db.Column(db.Text,        nullable=True)
     categories        = db.Column(db.Text,        nullable=True)
 
+    # ── Richer OpenFoodFacts metadata (Task 3B) ───────────────────────────────
+    packaging            = db.Column(db.String(200), nullable=True)
+    manufacturing_places = db.Column(db.String(200), nullable=True)
+    origins              = db.Column(db.String(200), nullable=True)
+    labels_tags          = db.Column(db.String(500), nullable=True)  # organic,vegan,halal,...
+
     # ── Computed score (cached) ───────────────────────────────────────────────
     food_pharmer_score = db.Column(db.Integer,    nullable=True)
     score_band         = db.Column(db.String(10), nullable=True)   # GREEN/ORANGE/RED
@@ -108,6 +114,10 @@ class Product(db.Model):
             },
             "allergens":          self.allergens,
             "categories":         self.categories,
+            "packaging":             self.packaging,
+            "manufacturing_places":  self.manufacturing_places,
+            "origins":               self.origins,
+            "labels_tags":           [t for t in (self.labels_tags or "").split(",") if t],
             "food_pharmer_score": self.food_pharmer_score,
             "score_band":         self.score_band,
             "source":             self.source,

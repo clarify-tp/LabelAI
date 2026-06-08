@@ -40,13 +40,13 @@ app = create_app()
 # ── Data file paths ────────────────────────────────────────────────────────────
 BASE_DIR      = os.path.dirname(os.path.abspath(__file__))
 PRODUCTS_JSON = os.path.join(BASE_DIR, "..", "data", "india_products.json")
-FSSAI_CSV     = os.path.join(BASE_DIR, "..", "data", "FSSAI_India_Additives_FoodPharmer.csv")
+FSSAI_CSV     = os.path.join(BASE_DIR, "..", "data", "FSSAI_India_Additives.csv")
 
 # Fallback: look in ./data/ relative to server/
 if not os.path.exists(PRODUCTS_JSON):
     PRODUCTS_JSON = os.path.join(BASE_DIR, "data", "india_products.json")
 if not os.path.exists(FSSAI_CSV):
-    FSSAI_CSV = os.path.join(BASE_DIR, "data", "FSSAI_India_Additives_FoodPharmer.csv")
+    FSSAI_CSV = os.path.join(BASE_DIR, "data", "FSSAI_India_Additives.csv")
 
 
 def _safe_str(val, maxlen=None):
@@ -173,7 +173,7 @@ def seed_ingredients():
                 harm_severity    = _safe_str(row.get("harm_severity"), 20) or "LOW",
                 color_code       = _safe_str(row.get("color_code"), 10) or "GREEN",
                 harm_reason      = row.get("harm_reason") or "",
-                revant_concern   = _safe_str(row.get("revant_concern"), 3) or "NO",
+                expert_concern   = _safe_str(row.get("expert_concern"), 3) or "NO",
                 fssai_permitted  = True,
                 source           = _safe_str(row.get("source"), 200) or "FSSAI 2020",
             )
@@ -185,33 +185,33 @@ def seed_ingredients():
         dict(ins_no="MAIDA",          name_english="Refined Wheat Flour (Maida)",
              name_hindi="मैदा",         functional_class="Base ingredient",
              harm_level=4,             harm_severity="HIGH",    color_code="RED",
-             revant_concern="YES",
+             expert_concern="YES",
              harm_reason="Highly refined flour. Zero fibre, high glycaemic index. Spikes blood sugar rapidly.",
-             fssai_permitted=True,     source="Custom — Food Pharmer"),
+             fssai_permitted=True,     source="Custom — LabelScan AI"),
         dict(ins_no="PALM_OIL",       name_english="Palm Oil",
              name_hindi="पाम तेल",      functional_class="Fat/Oil",
              harm_level=3,             harm_severity="MEDIUM-HIGH", color_code="ORANGE",
-             revant_concern="YES",
+             expert_concern="YES",
              harm_reason="High in saturated fat. Linked to cardiovascular risk at high consumption.",
-             fssai_permitted=True,     source="Custom — Food Pharmer"),
+             fssai_permitted=True,     source="Custom — LabelScan AI"),
         dict(ins_no="HYDRO_VEG_OIL",  name_english="Hydrogenated Vegetable Oil (Vanaspati)",
              name_hindi="वनस्पति",       functional_class="Fat/Oil",
              harm_level=4,             harm_severity="HIGH",    color_code="RED",
-             revant_concern="YES",
+             expert_concern="YES",
              harm_reason="Contains trans fats. Raises LDL, lowers HDL. WHO recommends elimination.",
-             fssai_permitted=True,     source="Custom — Food Pharmer"),
+             fssai_permitted=True,     source="Custom — LabelScan AI"),
         dict(ins_no="HFCS",           name_english="High Fructose Corn Syrup",
              name_hindi="हाई फ्रुक्टोज कॉर्न सिरप", functional_class="Sweetener",
              harm_level=4,             harm_severity="HIGH",    color_code="RED",
-             revant_concern="YES",
+             expert_concern="YES",
              harm_reason="Linked to obesity, fatty liver, and insulin resistance.",
-             fssai_permitted=True,     source="Custom — Food Pharmer"),
+             fssai_permitted=True,     source="Custom — LabelScan AI"),
         dict(ins_no="INTERESTER_FAT", name_english="Interesterified Fat",
              name_hindi="इंटरएस्टरीफाइड वसा", functional_class="Fat/Oil",
              harm_level=3,             harm_severity="MEDIUM-HIGH", color_code="ORANGE",
-             revant_concern="YES",
+             expert_concern="YES",
              harm_reason="Chemically modified fat. Some studies suggest metabolic concerns similar to trans fat.",
-             fssai_permitted=True,     source="Custom — Food Pharmer"),
+             fssai_permitted=True,     source="Custom — LabelScan AI"),
     ]
 
     for entry in CUSTOM:

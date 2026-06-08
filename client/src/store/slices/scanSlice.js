@@ -16,13 +16,16 @@ export const scanByBarcode = createAsyncThunk('scan/barcode', async ({ barcode, 
   }
 })
 
-export const scanByPhoto = createAsyncThunk('scan/photo', async ({ image, category }, { rejectWithValue }) => {
+export const scanByPhoto = createAsyncThunk('scan/photo', async ({ image, category, mime_type }, { rejectWithValue }) => {
   try {
-    const { data } = await api.post('/api/scan/photo', { image, category })
+    const { data } = await api.post('/api/scan/photo', { image, category, mime_type })
     return data
   } catch (err) {
-    const msg = err.response?.data?.error || 'Photo scan failed'
-    toast.error(msg); return rejectWithValue(msg)
+    // Surface the structured LOW_CONFIDENCE tips payload to the caller
+    const payload = err.response?.data
+    const msg = payload?.error || payload?.message || 'Photo scan failed'
+    if (payload?.status !== 'LOW_CONFIDENCE') toast.error(msg)
+    return rejectWithValue(payload || msg)
   }
 })
 

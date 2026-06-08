@@ -65,7 +65,7 @@ export default function Navbar({ onShowShortcuts }) {
                 Label Padhega AI
               </span>
               <span className="hidden md:inline-block ml-2 text-xs bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
-                🌿 Food Pharmer
+                100% Free · No Ads
               </span>
             </div>
           </Link>

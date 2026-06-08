@@ -24,8 +24,26 @@ Fixes applied:
 """
 
 import os
+import io
 import json
+import base64
 from groq import Groq
+
+# ── Optional HEIC/HEIF support (iPhone photos) — degrades gracefully ──────────
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    _HEIF_OK = True
+except Exception:  # pragma: no cover - optional dependency
+    _HEIF_OK = False
+
+# ── Pillow for image preprocessing — optional, degrades gracefully ───────────
+try:
+    from PIL import Image, ImageEnhance
+    _PIL_OK = True
+except Exception:  # pragma: no cover - optional dependency
+    _PIL_OK = False
+
 from app.tools.score_engine import (
     calculate_food_score,
     CALCULATE_FOOD_SCORE_SCHEMA,
@@ -99,11 +117,95 @@ RULES:
 - Blurry label → set ocr_confidence to LOW"""
 
 
-def extract_from_image(base64_image: str, category: str = "general") -> dict:
+# More aggressive best-effort retry prompt — used when first pass reads nothing.
+VISION_USER_RETRY_TEMPLATE = """This food label was hard to read on the first pass.
+Look VERY carefully again. Category hint: {category}
+
+Do your ABSOLUTE BEST to extract any legible text, even partial words.
+Zoom mentally into the ingredients panel and the nutrition table.
+It is better to return a partial ingredient list than an empty one.
+
+Return ONLY this JSON (no markdown, no extra text):
+{{
+  "product_name": "",
+  "brand": "",
+  "barcode": null,
+  "food_id": null,
+  "detected_category": "",
+  "serving_size_g": null,
+  "ingredients_raw": "",
+  "ingredients_parsed": [
+    {{"name": "", "ins_number": null, "is_sub_ingredient": false, "parent_ingredient": null}}
+  ],
+  "nutrition_per_100g": {{
+    "energy_kcal": null, "protein_g": null, "fat_g": null,
+    "saturated_fat_g": null, "trans_fat_g": null,
+    "sugar_g": null, "sodium_g": null, "fiber_g": null
+  }},
+  "nutrition_per_serving": {{
+    "energy_kcal": null, "protein_g": null, "fat_g": null,
+    "saturated_fat_g": null, "trans_fat_g": null,
+    "sugar_g": null, "sodium_mg": null, "fiber_g": null
+  }},
+  "claims_on_pack": [],
+  "allergens": [],
+  "fssai_number": null,
+  "ocr_confidence": "LOW",
+  "missing_fields": []
+}}
+RULES:
+- Extract every readable ingredient, even if you are only partly sure
+- If a word is partially legible, include your best reading
+- Set ocr_confidence to LOW if the image is genuinely unreadable"""
+
+
+def _preprocess_image(base64_image: str) -> tuple[str, str]:
     """
-    Send base64 label photo to Groq Vision.
-    Returns structured dict. Raises ValueError if non-JSON returned.
+    Decode → enhance → re-encode a label photo for better OCR.
+
+    Steps: convert to RGB, upscale if the shortest side < 1000px, cap the
+    longest side at 4000px, sharpen, boost contrast, re-encode as JPEG q=90.
+
+    Returns (processed_base64, mime_type). If Pillow is unavailable or the
+    image cannot be decoded, the original base64 is returned unchanged so the
+    caller still gets a usable payload (degrades gracefully).
     """
+    if not _PIL_OK:
+        return base64_image, "image/jpeg"
+    try:
+        raw = base64.b64decode(base64_image)
+        img = Image.open(io.BytesIO(raw))
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+
+        w, h = img.size
+        short_side = min(w, h)
+        long_side  = max(w, h)
+
+        # Upscale small images so fine print becomes legible
+        if short_side and short_side < 1000:
+            scale = 1000 / short_side
+            img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+            w, h = img.size
+            long_side = max(w, h)
+
+        # Cap very large images to keep the request light
+        if long_side > 4000:
+            scale = 4000 / long_side
+            img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+
+        img = ImageEnhance.Sharpness(img).enhance(2.0)
+        img = ImageEnhance.Contrast(img).enhance(1.3)
+
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=90)
+        return base64.b64encode(buf.getvalue()).decode(), "image/jpeg"
+    except Exception:
+        # Any decode/enhance failure → fall back to the original payload
+        return base64_image, "image/jpeg"
+
+
+def _call_vision(base64_image: str, mime_type: str, user_text: str) -> dict:
     client = get_client()
     response = client.chat.completions.create(
         model=VISION_MODEL,
@@ -114,9 +216,8 @@ def extract_from_image(base64_image: str, category: str = "general") -> dict:
                 "role": "user",
                 "content": [
                     {"type": "image_url",
-                     "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
-                    {"type": "text",
-                     "text": VISION_USER_TEMPLATE.format(category=category)},
+                     "image_url": {"url": f"data:{mime_type};base64,{base64_image}"}},
+                    {"type": "text", "text": user_text},
                 ],
             },
         ],
@@ -130,23 +231,64 @@ def extract_from_image(base64_image: str, category: str = "general") -> dict:
         raise ValueError(f"Groq vision returned non-JSON: {raw[:200]}") from e
 
 
+def extract_from_image(
+    base64_image: str,
+    category: str = "general",
+    mime_type: str = "image/jpeg",
+) -> dict:
+    """
+    Send base64 label photo to Groq Vision.
+
+    Pipeline:
+      1. Preprocess the image (decode, upscale, sharpen, re-encode JPEG).
+      2. First pass with the standard extraction prompt.
+      3. If confidence is LOW *and* no ingredients were read, retry once with
+         a more aggressive best-effort prompt.
+
+    Returns structured dict. Raises ValueError if Groq returns non-JSON.
+    """
+    processed_b64, processed_mime = _preprocess_image(base64_image)
+
+    extracted = _call_vision(
+        processed_b64, processed_mime,
+        VISION_USER_TEMPLATE.format(category=category),
+    )
+
+    confidence = (extracted.get("ocr_confidence") or "").upper()
+    ingredients_raw = (extracted.get("ingredients_raw") or "").strip()
+    if confidence == "LOW" and not ingredients_raw:
+        try:
+            retry = _call_vision(
+                processed_b64, processed_mime,
+                VISION_USER_RETRY_TEMPLATE.format(category=category),
+            )
+            # Prefer the retry only if it actually read something
+            if (retry.get("ingredients_raw") or "").strip():
+                retry["ocr_confidence"] = retry.get("ocr_confidence") or "LOW"
+                return retry
+        except Exception:
+            pass  # keep the first-pass result
+
+    return extracted
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. VERDICT GENERATION (tool calling)
 # ─────────────────────────────────────────────────────────────────────────────
 
-REVANT_SYSTEM = """You are "Label Padhega AI" — an ingredient expert who speaks exactly like Revant Himatsingka (Food Pharmer).
+LABELSCAN_SYSTEM = """You are "LabelScan AI" — a clear, science-backed food-label expert for India. Hinglish is welcome.
 
 VOICE RULES:
-- Direct and blunt. Zero sugarcoating. Bad product? Say it is bad.
+- Direct and honest. Zero sugarcoating. Bad product? Say it is bad.
 - Natural Hinglish. Use: "bhai", "yaar", "dekho", "seedha baat", "matlab", "toh"
 - Always use CONVERTED units: teaspoons for sugar, pinches for salt, tablespoons for oil
 - Relatable Indian comparisons: "chai mein ek teaspoon — yahan 5 daala hai!"
-- Mock deceptive marketing: "Company ne naam rakha 'health drink' — mujhe toh sugar bomb lagta hai"
+- Call out deceptive marketing: "Company ne naam rakha 'health drink' — data toh sugar bomb dikhata hai"
 - Lead with the WORST finding (worst_ingredient from tool result)
-- Bad products end: "Food Pharmer says: AVOID karo. [one clean alternative]"
-- Good products end: "Food Pharmer says: Yeh theek hai! Clean choice ✓"
+- Bad products end: "LabelScan AI: AVOID karo ❌ [one clean alternative]"
+- Good products end: "LabelScan AI: Safe choice ✓"
 - 4-5 sentences MAXIMUM. Never a paragraph.
-- NEVER mention AI, algorithms, or databases
+- Base every claim on the FSSAI additives data and ICMR nutrition thresholds provided
 - NEVER add health claims beyond what the tool result provides
 
 TOOL USAGE:
@@ -154,8 +296,8 @@ TOOL USAGE:
 - Do NOT compute or guess the score yourself.
 
 EXAMPLES:
-Bad: "Bhai, 5.2 teaspoon sugar ek cup mein — yeh health drink nahi, sugar drink hai. Caramel colour bhi hai, jisme 4-MeI hota hai. Score: 22/100. Food Pharmer says: AVOID karo. Plain milk mein kela milaao."
-Good: "Dekho — short ingredient list, koi artificial nahi, protein solid 22g. Score: 78/100. Food Pharmer says: Yeh theek hai! Clean choice ✓"
+Bad: "Bhai, 5.2 teaspoon sugar ek cup mein — yeh health drink nahi, sugar drink hai. Caramel colour bhi hai, jisme 4-MeI hota hai. Score: 22/100. LabelScan AI: AVOID karo ❌ Plain milk mein kela milaao."
+Good: "Dekho — short ingredient list, koi artificial nahi, protein solid 22g. Score: 78/100. LabelScan AI: Safe choice ✓"
 """
 
 
@@ -190,7 +332,7 @@ def generate_verdict(
     side_effects: list[dict],
 ) -> dict:
     """
-    Generate Food Pharmer verdict using tool calling.
+    Generate the LabelScan AI verdict using tool calling.
     matched_ingredients will be stripped to minimal fields automatically.
     """
     client = get_client()
@@ -215,7 +357,7 @@ def generate_verdict(
     )
 
     messages = [
-        {"role": "system", "content": REVANT_SYSTEM},
+        {"role": "system", "content": LABELSCAN_SYSTEM},
         {"role": "user",   "content": context},
     ]
 
@@ -261,7 +403,7 @@ def generate_verdict(
             f"Score: {score_result['score']}/100. "
             f"Worst: {score_result.get('worst_ingredient',{}).get('label','None')}. "
             f"Sugar: {score_result.get('sugar_teaspoons',0)} tsp. "
-            "Write the 4-5 sentence Revant-style Hinglish verdict now."
+            "Write the 4-5 sentence LabelScan AI Hinglish verdict now."
         ),
     })
 
@@ -410,8 +552,8 @@ def _build_product_context(product: dict | None) -> str:
 
 
 # ── FIXED system prompt template ───────────────────────────────────────────────
-CHATBOT_SYSTEM_TEMPLATE = """You are "Label Padhega AI Chatbot" — Revant Himatsingka's AI assistant.
-Speak in Revant's Hinglish voice: direct, clear, and helpful.
+CHATBOT_SYSTEM_TEMPLATE = """You are "LabelScan AI" — your personal food label expert.
+Speak in a clear, helpful Hinglish voice: direct, science-backed, and friendly.
 
 LANGUAGE AND TONE:
 - Use respectful language. Always use "aap" when addressing the user (NOT "tera/tere/tu").
@@ -521,12 +663,12 @@ def generate_comparison_verdict(products: list[dict]) -> dict:
     client = get_client()
 
     context = (
-        f"Compare these {len(products)} products as Food Pharmer.\n"
+        f"Compare these {len(products)} products as LabelScan AI.\n"
         f"Products: {json.dumps(products, ensure_ascii=False)}\n"
         "Call compare_products, then write the verdict."
     )
     messages = [
-        {"role": "system", "content": REVANT_SYSTEM},
+        {"role": "system", "content": LABELSCAN_SYSTEM},
         {"role": "user",   "content": context},
     ]
     response1 = client.chat.completions.create(
@@ -556,8 +698,8 @@ def generate_comparison_verdict(products: list[dict]) -> dict:
         "role": "user",
         "content": (
             f"Winner: {comparison_result.get('winner_name')}. "
-            "Write 4-5 sentences in Revant's Hinglish. ONE clear winner. "
-            "End: 'Food Pharmer winner: [PRODUCT NAME]'"
+            "Write 4-5 sentences in clear Hinglish. ONE clear winner. "
+            "End: 'LabelScan AI winner: [PRODUCT NAME]'"
         ),
     })
     response2 = client.chat.completions.create(

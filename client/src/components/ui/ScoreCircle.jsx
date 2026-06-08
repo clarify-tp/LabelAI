@@ -1,7 +1,7 @@
 /**
  * src/components/ui/ScoreCircle.jsx
  * ====================================
- * Animated circular Food Pharmer Score display.
+ * Animated circular LabelScan Score display.
  * Green >= 70, Orange 45-69, Red < 45.
  * GSAP counts up the number on mount.
  *

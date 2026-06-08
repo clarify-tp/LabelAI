@@ -14,6 +14,50 @@ import html2canvas from 'html2canvas'
 import toast from 'react-hot-toast'
 import ScoreCircle from '../ui/ScoreCircle'
 
+/** Certification badges parsed from OpenFoodFacts labels_tags (Task 3B) */
+const CERT_MAP = [
+  { match: 'organic',     emoji: '🌱', label: 'Organic' },
+  { match: 'vegan',       emoji: '🟢', label: 'Vegan' },
+  { match: 'vegetarian',  emoji: '🥕', label: 'Vegetarian' },
+  { match: 'halal',       emoji: '☪️', label: 'Halal' },
+  { match: 'kosher',      emoji: '✡️', label: 'Kosher' },
+  { match: 'gluten-free', emoji: '🌾', label: 'Gluten-free' },
+  { match: 'fair-trade',  emoji: '🤝', label: 'Fairtrade' },
+  { match: 'fairtrade',   emoji: '🤝', label: 'Fairtrade' },
+]
+
+function CertificationBadges({ labelsTags, origin }) {
+  const tags = Array.isArray(labelsTags)
+    ? labelsTags
+    : (labelsTags || '').split(',').filter(Boolean)
+  const found = []
+  const seen = new Set()
+  for (const t of tags) {
+    const low = t.toLowerCase()
+    for (const c of CERT_MAP) {
+      if (low.includes(c.match) && !seen.has(c.label)) {
+        seen.add(c.label)
+        found.push(c)
+      }
+    }
+  }
+  if (!found.length && !origin) return null
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {found.map(c => (
+        <span key={c.label} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+          <span>{c.emoji}</span> {c.label}
+        </span>
+      ))}
+      {origin && (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+          📍 {origin}
+        </span>
+      )}
+    </div>
+  )
+}
+
 /** Consumption frequency badge */
 function FrequencyBadge({ frequency }) {
   if (!frequency) return null
@@ -96,13 +140,22 @@ export default function VerdictCard({ result }) {
           : score_band === 'ORANGE' ? 'bg-orange-50 dark:bg-orange-900/20'
           : 'bg-red-50 dark:bg-red-900/20'
         }`}>
-          <div className="flex-1 min-w-0">
-            <h2 className="font-bold text-gray-900 dark:text-gray-100 text-lg leading-tight truncate">
-              {product?.product_name || 'Product'}
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-              {product?.brand}
-            </p>
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {result.scan_image_url && (
+              <img
+                src={result.scan_image_url}
+                alt="Scanned label"
+                className="w-14 h-14 rounded-lg object-cover border border-black/5 dark:border-white/10 flex-shrink-0"
+              />
+            )}
+            <div className="min-w-0">
+              <h2 className="font-bold text-gray-900 dark:text-gray-100 text-lg leading-tight truncate">
+                {product?.product_name || 'Product'}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                {product?.brand}
+              </p>
+            </div>
           </div>
           <div className="flex-shrink-0">
             <ScoreCircle score={score} size="md" />
@@ -121,6 +174,12 @@ export default function VerdictCard({ result }) {
           </div>
         )}
       </div>
+
+      {/* Certifications from OpenFoodFacts (organic / vegan / halal …) */}
+      <CertificationBadges
+        labelsTags={product?.labels_tags}
+        origin={product?.origins || product?.manufacturing_places}
+      />
 
       {/* Consumption frequency — shown outside shareable region */}
       <FrequencyBadge frequency={consumption_frequency} />

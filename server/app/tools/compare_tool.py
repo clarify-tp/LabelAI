@@ -5,7 +5,7 @@ The compare_products LLM tool — deterministic product comparison.
 
 The LLM calls this tool when comparison is requested.
 The tool picks the winner based on scores — the LLM never picks the winner itself.
-The LLM only explains WHY the winner is better in Revant's voice.
+The LLM only explains WHY the winner is better in the LabelScan AI voice.
 
 Normalisation:
   All nutrition values are converted to per-100g before comparison.
@@ -61,7 +61,7 @@ def compare_products(products: list[dict]) -> dict:
 
     # ── Build metric matrix ────────────────────────────────────────────────────
     metrics = {
-        "score":       {"higher_is_better": True,  "label": "Food Pharmer Score"},
+        "score":       {"higher_is_better": True,  "label": "LabelScan Score"},
         "sugar_100g":  {"higher_is_better": False, "label": "Sugar per 100g"},
         "sodium_100g": {"higher_is_better": False, "label": "Sodium per 100g"},
         "fat_100g":    {"higher_is_better": False, "label": "Fat per 100g"},
