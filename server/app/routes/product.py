@@ -14,15 +14,26 @@ product_bp = Blueprint("product", __name__)
 @product_bp.route("/history", methods=["GET"])
 @jwt_required
 def scan_history():
-    """Return last 20 scan records for the authenticated user."""
+    """
+    Return up to 100 scan records for the authenticated user.
+    Supports optional ?limit=N query param (max 200).
+    Response shape: { scans: [...], total: N }
+    """
+    from flask import request as req
+    try:
+        limit = min(int(req.args.get("limit", 100)), 200)
+    except (TypeError, ValueError):
+        limit = 100
+
     scans = (
         Scan.query
         .filter_by(user_id=g.user_id)
         .order_by(Scan.created_at.desc())
-        .limit(20)
+        .limit(limit)
         .all()
     )
-    return jsonify({"scans": [s.to_dict() for s in scans]}), 200
+    serialised = [s.to_dict() for s in scans]
+    return jsonify({"scans": serialised, "total": len(serialised)}), 200
 
 @product_bp.route("/<barcode>", methods=["GET"])
 @jwt_optional

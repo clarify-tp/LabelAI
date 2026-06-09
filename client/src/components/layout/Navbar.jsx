@@ -61,8 +61,8 @@ export default function Navbar({ onShowShortcuts }) {
               <Sparkles size={12} className="absolute -top-1 -right-1 text-yellow-500 animate-pulse" />
             </div>
             <div>
-              <span className="font-bold text-lg bg-gradient-to-r from-orange-600 via-amber-600 to-emerald-600 dark:from-orange-400 dark:via-amber-400 dark:to-emerald-400 bg-clip-text text-transparent">
-                Label Padhega AI
+              <span style={{ fontFamily: "'Playwrite GB J', cursive" }} className="font-bold text-lg bg-gradient-to-r from-orange-600 via-amber-600 to-emerald-600 dark:from-orange-400 dark:via-amber-400 dark:to-emerald-400 bg-clip-text text-transparent">
+                Label AI
               </span>
               <span className="hidden md:inline-block ml-2 text-xs bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
                 100% Free · No Ads

@@ -242,8 +242,8 @@ export default function Home() {
             India's Smartest Food Scanner · 100% Free
           </div>
 
-          <h1 className="hero-title text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-            Label Padhega <span className="text-emerald-600 dark:text-emerald-400">AI</span>
+          <h1 style={{ fontFamily: "'Playwrite GB J', cursive" }} className="hero-title text-4xl md:text-5xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+            Label <span className="text-emerald-600 dark:text-emerald-400">AI</span>
           </h1>
 
           <p className="hero-subtitle text-base md:text-lg text-gray-500 dark:text-gray-400 max-w-xl mx-auto leading-relaxed">

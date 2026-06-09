@@ -27,7 +27,10 @@ import os
 import io
 import json
 import base64
+import logging
 from groq import Groq
+
+logger = logging.getLogger(__name__)
 
 # ── Optional HEIC/HEIF support (iPhone photos) — degrades gracefully ──────────
 try:
@@ -43,6 +46,16 @@ try:
     _PIL_OK = True
 except Exception:  # pragma: no cover - optional dependency
     _PIL_OK = False
+
+# ── PaddleOCR pre-extraction layer — degrades gracefully ─────────────────────
+try:
+    from app.services.paddle_ocr_service import extract_text_from_image as _paddle_extract
+    _PADDLE_OK = True
+    logger.info("[groq_service] PaddleOCR integration active ✓")
+except Exception:  # pragma: no cover
+    _paddle_extract = None
+    _PADDLE_OK = False
+    logger.warning("[groq_service] PaddleOCR not available — using vision-only mode")
 
 from app.tools.score_engine import (
     calculate_food_score,
@@ -80,6 +93,51 @@ VISION_SYSTEM = (
     "You are an expert at reading Indian food product labels. "
     "Extract ALL visible information. Return ONLY valid JSON — no markdown, no explanation."
 )
+
+# ── Used when PaddleOCR has already extracted the raw text ───────────────────
+VISION_USER_PADDLE_TEMPLATE = """Extract structured data from this food label.
+Category hint: {category}
+
+PaddleOCR has already read the label and found this text (confidence: {confidence}):
+<ocr_text>
+{ocr_text}
+</ocr_text>
+
+Use the OCR text above as your PRIMARY source. Also look at the image to catch anything missed.
+Return ONLY this JSON (no markdown, no extra text):
+{{
+  "product_name": "",
+  "brand": "",
+  "barcode": null,
+  "food_id": null,
+  "detected_category": "",
+  "serving_size_g": null,
+  "ingredients_raw": "",
+  "ingredients_parsed": [
+    {{"name": "", "ins_number": null, "is_sub_ingredient": false, "parent_ingredient": null}}
+  ],
+  "nutrition_per_100g": {{
+    "energy_kcal": null, "protein_g": null, "fat_g": null,
+    "saturated_fat_g": null, "trans_fat_g": null,
+    "sugar_g": null, "sodium_g": null, "fiber_g": null
+  }},
+  "nutrition_per_serving": {{
+    "energy_kcal": null, "protein_g": null, "fat_g": null,
+    "saturated_fat_g": null, "trans_fat_g": null,
+    "sugar_g": null, "sodium_mg": null, "fiber_g": null
+  }},
+  "claims_on_pack": [],
+  "allergens": [],
+  "fssai_number": null,
+  "ocr_confidence": "{ocr_confidence}",
+  "missing_fields": []
+}}
+RULES:
+- Parse every ingredient from the OCR text above (look for lines starting with "Ingredients")
+- Parse every nutrition value from lines matching the nutrition table
+- "Added Colours (INS 102, INS 110)" → two entries with parent_ingredient = "Added Colours"
+- If only per-100g nutrition shown, fill nutrition_per_100g and leave per_serving all null
+- Keep ocr_confidence as provided above unless the image is clearly unreadable"""
 
 VISION_USER_TEMPLATE = """Extract from this food label image. Category hint: {category}
 Return ONLY this JSON (no markdown, no extra text):
@@ -237,32 +295,58 @@ def extract_from_image(
     mime_type: str = "image/jpeg",
 ) -> dict:
     """
-    Send base64 label photo to Groq Vision.
+    Send base64 label photo to Groq Vision, optionally pre-extracting text
+    with PaddleOCR first.
 
     Pipeline:
       1. Preprocess the image (decode, upscale, sharpen, re-encode JPEG).
-      2. First pass with the standard extraction prompt.
-      3. If confidence is LOW *and* no ingredients were read, retry once with
-         a more aggressive best-effort prompt.
+      2. [NEW] Run PaddleOCR to extract raw text blocks.
+      3. If PaddleOCR succeeded → use VISION_USER_PADDLE_TEMPLATE which
+         gives Groq the OCR text AND the image.  Groq then only needs to
+         parse / structure the already-extracted text rather than read it
+         from scratch — much higher accuracy on small/dense print.
+      4. If PaddleOCR unavailable or returned nothing → fall back to
+         VISION_USER_TEMPLATE (image-only, original behaviour).
+      5. If confidence is LOW and ingredients empty → retry once with
+         the aggressive best-effort prompt.
 
     Returns structured dict. Raises ValueError if Groq returns non-JSON.
     """
     processed_b64, processed_mime = _preprocess_image(base64_image)
 
-    extracted = _call_vision(
-        processed_b64, processed_mime,
-        VISION_USER_TEMPLATE.format(category=category),
-    )
+    # ── Step 2: PaddleOCR pre-extraction ─────────────────────────────────────
+    paddle_result = None
+    if _PADDLE_OK and _paddle_extract is not None:
+        try:
+            paddle_result = _paddle_extract(processed_b64)
+        except Exception as exc:
+            logger.warning("[extract_from_image] PaddleOCR failed: %s", exc)
 
-    confidence = (extracted.get("ocr_confidence") or "").upper()
+    # ── Step 3 / 4: choose prompt based on PaddleOCR outcome ─────────────────
+    if paddle_result and paddle_result.text.strip():
+        user_text = VISION_USER_PADDLE_TEMPLATE.format(
+            category       = category,
+            ocr_text       = paddle_result.text[:4000],  # stay inside context window
+            confidence     = f"{paddle_result.confidence:.0%}",
+            ocr_confidence = paddle_result.ocr_confidence_label,
+        )
+        logger.info(
+            "[extract_from_image] Using PaddleOCR-assisted prompt (%d chars OCR text)",
+            len(paddle_result.text),
+        )
+    else:
+        user_text = VISION_USER_TEMPLATE.format(category=category)
+        logger.info("[extract_from_image] Using vision-only prompt (no PaddleOCR text)")
+
+    extracted = _call_vision(processed_b64, processed_mime, user_text)
+
+    # ── Step 5: retry on LOW confidence + empty ingredients ──────────────────
+    confidence      = (extracted.get("ocr_confidence") or "").upper()
     ingredients_raw = (extracted.get("ingredients_raw") or "").strip()
     if confidence == "LOW" and not ingredients_raw:
         try:
-            retry = _call_vision(
-                processed_b64, processed_mime,
-                VISION_USER_RETRY_TEMPLATE.format(category=category),
-            )
-            # Prefer the retry only if it actually read something
+            retry_text = VISION_USER_RETRY_TEMPLATE.format(category=category)
+            retry = _call_vision(processed_b64, processed_mime, retry_text)
             if (retry.get("ingredients_raw") or "").strip():
                 retry["ocr_confidence"] = retry.get("ocr_confidence") or "LOW"
                 return retry

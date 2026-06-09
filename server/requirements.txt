@@ -19,6 +19,11 @@ reportlab==4.2.5
 alembic==1.13.3
 pillow==10.4.0
 
+# ── OCR: PaddleOCR for high-accuracy label text extraction ───────────────────
+# CPU-only install; GPU users can swap paddlepaddle → paddlepaddle-gpu
+paddlepaddle>=2.6.0            # PaddlePaddle CPU runtime
+paddleocr>=2.7.3               # PaddleOCR text detection + recognition
+
 # ── New free-tier integrations (all optional, degrade gracefully) ─────────────
 pillow-heif>=0.16.0        # HEIC/HEIF iPhone photo support (Task 2A)
 redis>=5.0.0               # Scan result caching (Task 3D) — Upstash free tier

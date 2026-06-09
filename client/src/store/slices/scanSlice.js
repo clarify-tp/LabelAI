@@ -41,8 +41,9 @@ export const scanByLink = createAsyncThunk('scan/link', async ({ url, category }
 
 export const fetchHistory = createAsyncThunk('scan/history', async (_, { rejectWithValue }) => {
   try {
-    const { data } = await api.get('/api/product/history')
-    return data.scans
+    const { data } = await api.get('/api/product/history?limit=100')
+    // Backend returns { scans: [...], total: N }
+    return Array.isArray(data) ? data : (data.scans || [])
   } catch (err) {
     return rejectWithValue(err.response?.data?.error || 'Failed to fetch history')
   }
@@ -63,7 +64,9 @@ const scanSlice = createSlice({
       .addCase(scanByBarcode.pending, pending).addCase(scanByBarcode.fulfilled, fulfilled).addCase(scanByBarcode.rejected, rejected)
       .addCase(scanByPhoto.pending, pending).addCase(scanByPhoto.fulfilled, fulfilled).addCase(scanByPhoto.rejected, rejected)
       .addCase(scanByLink.pending, pending).addCase(scanByLink.fulfilled, fulfilled).addCase(scanByLink.rejected, rejected)
-      .addCase(fetchHistory.fulfilled, (s, a) => { s.history = a.payload || [] })
+      .addCase(fetchHistory.pending,   (s) => { s.loading = true; s.error = null })
+      .addCase(fetchHistory.fulfilled, (s, a) => { s.loading = false; s.history = a.payload || [] })
+      .addCase(fetchHistory.rejected,  (s, a) => { s.loading = false; s.error = a.payload })
   },
 })
 export const { clearCurrent, clearError } = scanSlice.actions

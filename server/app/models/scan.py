@@ -37,11 +37,12 @@ class Scan(db.Model):
         return {
             "id":                 self.id,
             "barcode":            self.barcode,
-            "product_name":       self.product_name,
-            "category":           self.category,
+            "product_name":       self.product_name or "Unknown",
+            "category":           self.category or "general",
             "input_method":       self.input_method,
             "base_score":         self.base_score,
             "personalised_score": self.personalised_score,
+            "verdict_text":       self.verdict_text,
             "scan_image_url":     self.image_url,
-            "created_at":         self.created_at.isoformat(),
+            "created_at":         self.created_at.isoformat() if self.created_at else None,
         }

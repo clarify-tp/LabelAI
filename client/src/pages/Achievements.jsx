@@ -1,31 +1,29 @@
 /**
  * src/pages/Achievements.jsx
  * ===========================
- * Gamified achievements page.
- * Awards badges based on the user's real scan history.
- * All logic is client-side — computes badges from /api/product/history data.
- *
- * Badge categories:
- *   🔍 Scanner milestones   (1, 5, 10, 25, 50 scans)
- *   🥗 Health milestones    (first GREEN scan, 5 GREEN scans)
- *   🕵️  Detective badges     (first RED product caught, compared products)
- *   📅  Streak badges        (scan on consecutive days)
+ * Gamified achievements page — uses Redux history (same as History + Insights).
+ * No separate API call needed; dispatches fetchHistory on mount.
  */
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
-import { useSelector } from 'react-redux'
 import { Award, Lock, ArrowLeft } from 'lucide-react'
-import api from '../configs/api'
+import { fetchHistory } from '../store/slices/scanSlice'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 function buildBadges(scans) {
   const total     = scans.length
   const greenHits = scans.filter(s => (s.base_score || 0) >= 70).length
-  const redCaught = scans.filter(s => (s.base_score || 0) < 45 && s.base_score != null).length
+  const redCaught = scans.filter(s => s.base_score != null && (s.base_score) < 45).length
 
   // Consecutive-day streak
-  const days = [...new Set(scans.map(s => s.created_at?.slice(0, 10)))].sort()
-  let streak = 0, maxStreak = 0, cur = 0
+  const days = [...new Set(
+    scans
+      .map(s => s.created_at?.slice(0, 10))
+      .filter(Boolean)
+  )].sort()
+
+  let maxStreak = 0, cur = 0
   for (let i = 0; i < days.length; i++) {
     if (i === 0) { cur = 1 }
     else {
@@ -35,41 +33,36 @@ function buildBadges(scans) {
     }
     maxStreak = Math.max(maxStreak, cur)
   }
-  streak = maxStreak
 
   return [
     // Scanner milestones
-    { emoji: '🔍', name: 'First Scan',    desc: 'Scanned your first product',          unlocked: total >= 1  },
-    { emoji: '🔎', name: 'Label Reader',  desc: 'Scanned 5 products',                  unlocked: total >= 5  },
-    { emoji: '🧪', name: 'Lab Assistant', desc: 'Scanned 10 products',                 unlocked: total >= 10 },
-    { emoji: '🔬', name: 'Food Scientist',desc: 'Scanned 25 products',                 unlocked: total >= 25 },
-    { emoji: '🏆', name: 'Label Pro',     desc: 'Scanned 50 products',                 unlocked: total >= 50 },
+    { emoji: '🔍', name: 'First Scan',     desc: 'Scanned your first product',      unlocked: total >= 1  },
+    { emoji: '🔎', name: 'Label Reader',   desc: 'Scanned 5 products',              unlocked: total >= 5  },
+    { emoji: '🧪', name: 'Lab Assistant',  desc: 'Scanned 10 products',             unlocked: total >= 10 },
+    { emoji: '🔬', name: 'Food Scientist', desc: 'Scanned 25 products',             unlocked: total >= 25 },
+    { emoji: '🏆', name: 'Label Pro',      desc: 'Scanned 50 products',             unlocked: total >= 50 },
     // Health badges
-    { emoji: '🥗', name: 'Clean Eater',   desc: 'Found your first GREEN product',       unlocked: greenHits >= 1 },
-    { emoji: '🌿', name: 'Health Hero',   desc: '5 GREEN products found',              unlocked: greenHits >= 5 },
+    { emoji: '🥗', name: 'Clean Eater',    desc: 'Found your first GREEN product',  unlocked: greenHits >= 1 },
+    { emoji: '🌿', name: 'Health Hero',    desc: '5 GREEN products found',          unlocked: greenHits >= 5 },
     // Detective badges
-    { emoji: '🚨', name: 'Danger Spotter',desc: 'Caught your first RED product',       unlocked: redCaught >= 1 },
-    { emoji: '🕵️', name: 'Food Detective', desc: 'Caught 5 harmful products',          unlocked: redCaught >= 5 },
+    { emoji: '🚨', name: 'Danger Spotter', desc: 'Caught your first RED product',   unlocked: redCaught >= 1 },
+    { emoji: '🕵️', name: 'Food Detective', desc: 'Caught 5 harmful products',       unlocked: redCaught >= 5 },
     // Streak badges
-    { emoji: '🔥', name: '3-Day Streak',  desc: 'Scanned on 3 consecutive days',       unlocked: streak >= 3  },
-    { emoji: '⚡', name: '7-Day Streak',  desc: 'Scanned every day for a week',        unlocked: streak >= 7  },
+    { emoji: '🔥', name: '3-Day Streak',   desc: 'Scanned on 3 consecutive days',   unlocked: maxStreak >= 3 },
+    { emoji: '⚡', name: '7-Day Streak',   desc: 'Scanned every day for a week',    unlocked: maxStreak >= 7 },
   ]
 }
 
 export default function Achievements() {
+  const dispatch = useDispatch()
   const navigate = useNavigate()
   const token    = useSelector(s => s.auth.token)
-  const [scans,   setScans]   = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error,   setError]   = useState(null)
+  const { history: scans, loading, error } = useSelector(s => s.scan)
 
   useEffect(() => {
     if (!token) { navigate('/login'); return }
-    api.get('/api/product/history')
-      .then(r => setScans(r.data?.scans || r.data || []))
-      .catch(() => setError('Could not load your scan history.'))
-      .finally(() => setLoading(false))
-  }, [token, navigate])
+    dispatch(fetchHistory())
+  }, [dispatch, token, navigate])
 
   if (loading) return <LoadingSpinner message="Loading achievements…" />
   if (error)   return <p className="text-center text-red-500 py-16">{error}</p>
@@ -89,10 +82,11 @@ export default function Achievements() {
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           {unlocked} of {badges.length} badges unlocked
+          {scans.length > 0 && ` · based on ${scans.length} scan${scans.length !== 1 ? 's' : ''}`}
         </p>
       </div>
 
-      {/* Progress bar */}
+      {/* Overall progress bar */}
       <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2.5">
         <div
           className="bg-gradient-to-r from-amber-400 to-orange-500 h-2.5 rounded-full transition-all duration-700"
@@ -111,7 +105,9 @@ export default function Achievements() {
                 : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 opacity-50'
             }`}
           >
-            <span className="text-3xl">{b.unlocked ? b.emoji : <Lock size={24} className="text-gray-400" />}</span>
+            <span className="text-3xl leading-none">
+              {b.unlocked ? b.emoji : <Lock size={24} className="text-gray-400" />}
+            </span>
             <div>
               <p className={`text-sm font-semibold ${b.unlocked ? 'text-amber-700 dark:text-amber-400' : 'text-gray-500 dark:text-gray-500'}`}>
                 {b.name}

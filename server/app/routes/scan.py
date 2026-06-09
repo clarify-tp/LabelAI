@@ -30,7 +30,7 @@ from app.services.cache_service import get_cached_scan, cache_scan
 from app.services.nutrition_fallback import lookup_nutrition_by_name
 from app.services.image_store import upload_scan_image
 from app.tools.score_engine import calculate_food_score
-from app.utils.auth import jwt_optional
+from app.utils.auth import jwt_optional, jwt_required
 from app.utils.humanise import (
     per_100g_to_per_serving,
     describe_serving_size,
@@ -246,16 +246,19 @@ def _off_to_product(barcode: str, off_data: dict) -> Product:
     )
 
 
-def _save_scan(user_id, product, category, input_method, score, image_url=None):
+def _save_scan(user_id, product, category, input_method, score, image_url=None, verdict_text=None):
+    if not user_id:
+        return None   # anonymous scan — skip DB write
     try:
         scan = Scan(
             user_id      = user_id,
             barcode      = product.barcode,
-            product_name = _safe_str(product.product_name, 500),
-            category     = category,
+            product_name = _safe_str(product.product_name, 500) or "Unknown",
+            category     = category or "general",
             input_method = input_method,
             base_score   = score,
             image_url    = image_url,
+            verdict_text = verdict_text,
         )
         db.session.add(scan)
         db.session.commit()
@@ -310,7 +313,8 @@ def scan_barcode():
                         "message": "Product not found. Upload a photo of the ingredients list."}), 404
 
     result = _run_pipeline(product, category)
-    _save_scan(g.user_id, product, category, "barcode", result["score"])
+    _save_scan(g.user_id, product, category, "barcode", result["score"],
+               verdict_text=result.get("verdict_text"))
     return jsonify({"status": "OK", **result}), 200
 
 
@@ -331,7 +335,8 @@ def scan_photo():
         cached_barcode = (cached.get("product") or {}).get("barcode")
         cached_product = db.session.get(Product, cached_barcode) if cached_barcode else None
         if cached_product:
-            _save_scan(g.user_id, cached_product, category, "photo", cached.get("score"))
+            _save_scan(g.user_id, cached_product, category, "photo", cached.get("score"),
+                       verdict_text=cached.get("verdict_text"))
         return jsonify({"status": "OK", "cached": True, **cached}), 200
 
     try:
@@ -527,7 +532,8 @@ def scan_photo():
     result["nutrition_source"] = "usda_fallback" if usda_used else "label"
 
     # ── Optional: store the scanned label image (Cloudinary free tier) ────────
-    scan = _save_scan(g.user_id, product, category, "photo", result["score"])
+    scan = _save_scan(g.user_id, product, category, "photo", result["score"],
+                      verdict_text=result.get("verdict_text"))
     image_url = upload_scan_image(image_b64, scan.id if scan else (product.barcode or "unknown"))
     if image_url:
         result["scan_image_url"] = image_url
@@ -618,5 +624,29 @@ def scan_link():
     except Exception:
         db.session.rollback()
 
-    _save_scan(g.user_id, product, category, "link", result["score"])
+    _save_scan(g.user_id, product, category, "link", result["score"],
+               verdict_text=result.get("verdict_text"))
     return jsonify({"status": "OK", **result}), 200
+
+@scan_bp.route("/history", methods=["GET"])
+@jwt_required
+def scan_history_alias():
+    """
+    Alias for /api/product/history — kept here so the scan blueprint
+    also exposes history (some frontend pages call /api/scan/history).
+    """
+    from flask import request as req
+    try:
+        limit = min(int(req.args.get("limit", 100)), 200)
+    except (TypeError, ValueError):
+        limit = 100
+
+    scans = (
+        Scan.query
+        .filter_by(user_id=g.user_id)
+        .order_by(Scan.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    serialised = [s.to_dict() for s in scans]
+    return jsonify({"scans": serialised, "total": len(serialised)}), 200
