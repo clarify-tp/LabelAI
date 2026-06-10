@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+/* 
+  Tailwind v4 dark mode: use `class` strategy so `dark` class on <html>
+  controls dark mode — required for Redux-driven toggle to work.
+*/
+@custom-variant dark (&:where(.dark, .dark *));
+
 body {
-    font-family: "Outfit", serif;
+  font-family: "Outfit", serif;
+}
+
+/* Smooth theme transition */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+/* But don't transition transforms/opacity (breaks animations) */
+[data-no-transition] {
+  transition: none !important;
 }

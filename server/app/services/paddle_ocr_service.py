@@ -66,7 +66,6 @@ def _get_ocr() -> Optional["PaddleOCR"]:  # type: ignore[name-defined]
             _ocr_instance = PaddleOCR(
                 use_angle_cls=True,
                 lang="en",
-                show_log=False,
                 use_gpu=False,   # CPU-only for broad compatibility
             )
         except Exception as exc:

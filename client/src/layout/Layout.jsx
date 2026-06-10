@@ -1,29 +1,33 @@
 /**
  * src/layout/Layout.jsx
- * =====================
- * Root layout wrapper — clean, professional, foody theme
- * No gradients, minimal shadows. Smooth GSAP animations.
+ * ✅ Breadcrumb container styled with theme colours
+ * ✅ Dark class always in sync with Redux theme on mount
  */
-
 import React, { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
+import { useSelector } from 'react-redux'
 import { gsap } from 'gsap'
-import { ChefHat, Sparkles } from 'lucide-react'
-import Navbar      from '../components/layout/Navbar'
-import Breadcrumb  from '../components/layout/Breadcrumb'
-import Footer      from '../components/layout/Footer'
-import BackToTop   from '../components/ui/BackToTop'
+import Navbar     from '../components/layout/Navbar'
+import Breadcrumb from '../components/layout/Breadcrumb'
+import Footer     from '../components/layout/Footer'
+import BackToTop  from '../components/ui/BackToTop'
 import KeyboardShortcutsGuide from '../components/ui/KeyboardShortcutsGuide'
 
 export default function Layout() {
   const navRef   = useRef(null)
   const location = useLocation()
+  const theme    = useSelector(s => s.theme.mode)
   const [showShortcuts, setShowShortcuts] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
+  const [scrolled, setScrolled]           = useState(false)
 
   const isHomePage = location.pathname === '/'
 
-  // GSAP: animate navbar on mount
+  /* Ensure dark class is in sync with Redux on every render (fixes toggle bug) */
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+  }, [theme])
+
+  /* Animate navbar on mount */
   useEffect(() => {
     if (!navRef.current) return
     gsap.fromTo(
@@ -33,39 +37,31 @@ export default function Layout() {
     )
   }, [])
 
-  // GSAP: animate main content on route change
+  /* Animate content on route change */
   useEffect(() => {
-    const mainContent = document.querySelector('.layout-main')
-    if (mainContent) {
+    const el = document.querySelector('.layout-main')
+    if (el) {
       gsap.fromTo(
-        mainContent,
-        { opacity: 0, y: 15 },
-        { 
-          opacity: 1, 
-          y: 0, 
-          duration: 0.4, 
-          ease: 'power2.out',
-          clearProps: 'all'
-        }
+        el,
+        { opacity: 0, y: 12 },
+        { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out', clearProps: 'all' }
       )
     }
   }, [location.pathname])
 
-  // Track scroll for dynamic background
+  /* Scroll shadow */
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 30)
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
+    const fn = () => setScrolled(window.scrollY > 30)
+    window.addEventListener('scroll', fn, { passive: true })
+    return () => window.removeEventListener('scroll', fn)
   }, [])
 
-  // Keyboard shortcut: ? → show shortcuts guide
+  /* Keyboard shortcut overlay */
   useEffect(() => {
     const handler = (e) => {
       if (e.key === '?' && !e.target.matches('input, textarea')) {
         e.preventDefault()
-        setShowShortcuts((v) => !v)
+        setShowShortcuts(v => !v)
       }
       if (e.key === 'Escape') setShowShortcuts(false)
     }
@@ -74,41 +70,42 @@ export default function Layout() {
   }, [])
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-gray-950">
-      {/* Subtle top accent line for non-home pages */}
+    <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-gray-950 transition-colors duration-300">
+
+      {/* Top accent line for inner pages */}
       {!isHomePage && (
-        <div className="fixed top-0 left-0 right-0 h-0.5 bg-emerald-500 z-50" />
+        <div className="fixed top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-orange-500 via-amber-400 to-emerald-500 z-50" />
       )}
 
-      {/* Navbar with scroll effect — clean, no blur */}
-      <div 
-        ref={navRef} 
+      {/* Navbar */}
+      <div
+        ref={navRef}
         className={`sticky top-0 z-40 transition-all duration-300 ${
-          scrolled 
-            ? 'bg-white/95 dark:bg-gray-900/95 border-b border-gray-200 dark:border-gray-800' 
+          scrolled
+            ? 'bg-white/95 dark:bg-gray-900/95 border-b border-gray-200 dark:border-gray-800 shadow-sm backdrop-blur-sm'
             : 'bg-transparent'
         }`}
       >
         <Navbar onShowShortcuts={() => setShowShortcuts(true)} />
       </div>
 
-      {/* Breadcrumb — clean */}
+      {/* Breadcrumb — styled with orange accent, pill shape */}
       {!isHomePage && (
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4 pb-2">
-          <div className="bg-white dark:bg-gray-800 rounded-lg px-4 py-2 inline-block border border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4 pb-1">
+          <div className="inline-flex items-center gap-1 px-4 py-1.5 rounded-full bg-white dark:bg-gray-800 border border-orange-100 dark:border-orange-900/30 shadow-sm">
             <Breadcrumb />
           </div>
         </div>
       )}
 
-      {/* Decorative separator for non-home pages */}
+      {/* Thin separator under breadcrumb */}
       {!isHomePage && (
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
-          <div className="h-px bg-gray-200 dark:bg-gray-800" />
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-2">
+          <div className="h-px bg-gradient-to-r from-orange-100 via-amber-100 to-emerald-100 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-emerald-900/20" />
         </div>
       )}
 
-      {/* Main content */}
+      {/* Main */}
       <main className="layout-main flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         <div className="max-w-7xl mx-auto">
           <Outlet />
@@ -116,14 +113,12 @@ export default function Layout() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+      <footer className="mt-auto border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 transition-colors duration-300">
         <Footer />
       </footer>
 
-      {/* Back to top button */}
       <BackToTop />
 
-      {/* Keyboard shortcuts guide overlay */}
       {showShortcuts && (
         <KeyboardShortcutsGuide onClose={() => setShowShortcuts(false)} />
       )}

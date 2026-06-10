@@ -81,7 +81,7 @@ def get_client() -> Groq:
 
 
 VISION_MODEL  = "meta-llama/llama-4-scout-17b-16e-instruct"
-VERDICT_MODEL = "llama-3.3-70b-versatile"
+VERDICT_MODEL = "openai/gpt-oss-120b"
 FAST_MODEL    = "llama-3.1-8b-instant"
 
 

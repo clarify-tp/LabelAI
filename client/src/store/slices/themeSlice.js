@@ -1,12 +1,21 @@
 /**
  * src/store/slices/themeSlice.js
- * Light / dark mode. Persists to localStorage as 'lp_theme'.
- * Applies/removes 'dark' class on document.documentElement for Tailwind dark mode.
+ * ✅ Fixed: applies dark class on init AND on every toggle
+ * Persists to localStorage as 'lp_theme'.
  */
 import { createSlice } from '@reduxjs/toolkit'
 
+function applyTheme(mode) {
+  if (mode === 'dark') {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+}
+
+// Apply on page load immediately
 const stored = localStorage.getItem('lp_theme') || 'light'
-if (stored === 'dark') document.documentElement.classList.add('dark')
+applyTheme(stored)
 
 const themeSlice = createSlice({
   name: 'theme',
@@ -15,12 +24,12 @@ const themeSlice = createSlice({
     toggleTheme(state) {
       state.mode = state.mode === 'light' ? 'dark' : 'light'
       localStorage.setItem('lp_theme', state.mode)
-      document.documentElement.classList.toggle('dark', state.mode === 'dark')
+      applyTheme(state.mode)
     },
     setTheme(state, action) {
       state.mode = action.payload
       localStorage.setItem('lp_theme', state.mode)
-      document.documentElement.classList.toggle('dark', state.mode === 'dark')
+      applyTheme(state.mode)
     },
   },
 })
